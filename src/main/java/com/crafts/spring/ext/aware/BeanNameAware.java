@@ -1,4 +1,4 @@
-package com.crafts.spring.aware;
+package com.crafts.spring.ext.aware;
 
 public interface BeanNameAware {
 

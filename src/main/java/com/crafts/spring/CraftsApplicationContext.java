@@ -4,14 +4,17 @@ import com.crafts.spring.annotation.Autowird;
 import com.crafts.spring.annotation.Component;
 import com.crafts.spring.annotation.ComponentScan;
 import com.crafts.spring.annotation.Scope;
-import com.crafts.spring.aware.BeanNameAware;
 import com.crafts.spring.banner.Banner;
 import com.crafts.spring.banner.SpringLogoBanner;
 import com.crafts.spring.exception.NoExistsBeanException;
 import com.crafts.spring.exception.NotFoundAnnotation;
+import com.crafts.spring.ext.aware.BeanNameAware;
+import com.crafts.spring.ext.init.InitializingBean;
+import com.crafts.spring.ext.processor.BeanPostProcessor;
 
 import java.io.File;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,26 +33,25 @@ public class CraftsApplicationContext {
 	// Bean 定义
 	private ConcurrentHashMap<String, BeanDefinition> beanDefinitionMap = new ConcurrentHashMap<>();
 
+	// BeanPostProcessor
+	private List<BeanPostProcessor> beanPostProcessors = new ArrayList<>();
+
 	static {
 		banners.add(new SpringLogoBanner());
 	}
+
 
 	public CraftsApplicationContext(Class configClass) {
 		this.configClass = configClass;
 
 		scan(configClass); // 得到 BeanDefinition
 
-		// 初始化所有单例bean
-		for (String beanName : beanDefinitionMap.keySet()) {
-			BeanDefinition beanDefinition = beanDefinitionMap.get(beanName);
-			if (beanDefinition.getScope().equals("singleton")) {
-				Object bean = createBean(beanDefinition);
-				singletonObjects.put(beanName, bean);
-			}
-		}
+		initSingletonBean();
 
 		printBanner();
 	}
+
+
 
 	/**
 	 * 创建bean
@@ -74,15 +76,21 @@ public class CraftsApplicationContext {
 				((BeanNameAware) instance).setBeanName(beanDefinition.getName());
 			}
 
+			// 初始化前
+			for (BeanPostProcessor beanPostProcessor : beanPostProcessors) {
+				instance = beanPostProcessor.postProcessBeforeInitialization(instance, beanDefinition.getName());
+			}
+
+
 			// 初始化
 			if(instance instanceof InitializingBean){
 				((InitializingBean) instance).afterPropertiesSet();
 			}
 
-			// BeanPostProcessor
-
-
-
+			// 初始化后
+			for (BeanPostProcessor beanPostProcessor : beanPostProcessors) {
+				instance = beanPostProcessor.postProcessAfterInitialization(instance, beanDefinition.getName());
+			}
 
 			return instance;
 		} catch (Exception e) {
@@ -123,12 +131,20 @@ public class CraftsApplicationContext {
 					try {
 						Class<?> clazz = classLoader.loadClass(classname);
 						if (clazz.isAnnotationPresent(Component.class)) {
-							// 得到一个bean
-							Component componentAnno = clazz.getDeclaredAnnotation(Component.class);
 
-							// beanName 默认为类名首字母小写
+							// 扫描 BeanPostProcessor
+							// clazz 是否实现了 BeanPostProcessor 接口
+							if(BeanPostProcessor.class.isAssignableFrom(clazz)){
+								//TODO: 会创建 BeanPostProcessor 两个实例
+								BeanPostProcessor instance = (BeanPostProcessor) clazz.getDeclaredConstructor().newInstance();
+								beanPostProcessors.add(instance);
+							}
+
+							// 扫描 Component 注解
+							Component componentAnno = clazz.getDeclaredAnnotation(Component.class);
 							String beanName = componentAnno.value();
 							if (beanName.equals("")) {
+								// beanName 默认为类名首字母小写
 								beanName = clazz.getSimpleName().substring(0, 1).toLowerCase()
 										+ clazz.getSimpleName().substring(1);
 							}
@@ -148,6 +164,14 @@ public class CraftsApplicationContext {
 							beanDefinitionMap.put(beanName, beanDefinition);
 						}
 					} catch (ClassNotFoundException e) {
+						throw new RuntimeException(e);
+					} catch (InvocationTargetException e) {
+						throw new RuntimeException(e);
+					} catch (InstantiationException e) {
+						throw new RuntimeException(e);
+					} catch (IllegalAccessException e) {
+						throw new RuntimeException(e);
+					} catch (NoSuchMethodException e) {
 						throw new RuntimeException(e);
 					}
 				}
@@ -198,10 +222,27 @@ public class CraftsApplicationContext {
 		return object;
 	}
 
+	/**
+	 * 打印 banner
+	 */
 	private void printBanner() {
 		System.out.println("====================================================================");
 		banners.forEach(Banner::showBanner);
 		System.out.println("====================================================================");
+	}
+
+	/**
+	 * 初始化所有单例 bean
+	 */
+	private void initSingletonBean() {
+		// 初始化所有单例bean
+		for (String beanName : beanDefinitionMap.keySet()) {
+			BeanDefinition beanDefinition = beanDefinitionMap.get(beanName);
+			if (beanDefinition.getScope().equals("singleton")) {
+				Object bean = createBean(beanDefinition);
+				singletonObjects.put(beanName, bean);
+			}
+		}
 	}
 
 }

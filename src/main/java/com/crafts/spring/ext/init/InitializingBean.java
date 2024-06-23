@@ -1,4 +1,4 @@
-package com.crafts.spring;
+package com.crafts.spring.ext.init;
 
 public interface InitializingBean {
 
