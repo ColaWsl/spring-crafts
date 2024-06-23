@@ -6,6 +6,4 @@ import com.crafts.spring.annotation.Component;
 @Component
 public class OrderService {
 
-	@Autowird
-	private UserServiceImpl userServiceImpl;
 }

@@ -2,9 +2,7 @@ package com.wangsl;
 
 import com.crafts.spring.CraftsApplicationContext;
 import com.wangsl.config.AppConfig;
-import com.wangsl.service.OrderService;
 import com.wangsl.service.UserService;
-import com.wangsl.service.UserServiceImpl;
 
 public class Application {
 	public static void main(String[] args) {
@@ -20,6 +18,6 @@ public class Application {
 	    **/
 
 
-		UserService userService = (UserService) context.getBean(UserServiceImpl.class);
+		UserService userService = (UserService) context.getBean("userService");
 	}
 }

@@ -1,14 +1,15 @@
 package com.wangsl.service;
 
-import com.crafts.spring.ext.init.InitializingBean;
 import com.crafts.spring.annotation.Autowird;
 import com.crafts.spring.annotation.Component;
 import com.crafts.spring.ext.aware.BeanNameAware;
+import com.crafts.spring.ext.init.InitializingBean;
 
-@Component
-// @Scope("prototype")
+@Component("userService")
 public class UserServiceImpl implements BeanNameAware, InitializingBean, UserService {
 
+	@Autowird
+	private OrderService orderService;
 
 	private String beanName;
 
