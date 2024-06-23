@@ -34,9 +34,28 @@ public class CraftsApplicationContext {
 	public CraftsApplicationContext(Class configClass) {
 		this.configClass = configClass;
 
-		scan(configClass);
+		scan(configClass); // 得到 BeanDefinition
+
+		// 创建所有单例bean
+		for (String beanName : beanDefinitionMap.keySet()) {
+			BeanDefinition beanDefinition = beanDefinitionMap.get(beanName);
+			if (beanDefinition.getScope().equals("singleton")) {
+				Object bean = createBean(beanDefinition);
+				singletonObjects.put(beanName, bean);
+			}
+		}
 
 		printBanner();
+	}
+
+	private Object createBean(BeanDefinition beanDefinition) {
+		Class clazz = beanDefinition.getClazz();
+		try {
+			Object instance = clazz.getDeclaredConstructor().newInstance();
+			return instance;
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	private void scan(Class configClass) {
@@ -68,11 +87,18 @@ public class CraftsApplicationContext {
 						if (clazz.isAnnotationPresent(Component.class)) {
 							// 得到一个bean
 							Component componentAnno = clazz.getDeclaredAnnotation(Component.class);
+
+							// beanName 默认为类名首字母小写
 							String beanName = componentAnno.value();
+							if (beanName.equals("")) {
+								beanName = clazz.getSimpleName().substring(0, 1).toLowerCase()
+										+ clazz.getSimpleName().substring(1);
+							}
 
 							// beanDefinition 对 bean 进行定义
 							BeanDefinition beanDefinition = new BeanDefinition();
 							beanDefinition.setClazz(clazz);
+							beanDefinition.setName(beanName);
 
 							// 解析 scope
 							if (clazz.isAnnotationPresent(Scope.class)) {
@@ -90,24 +116,46 @@ public class CraftsApplicationContext {
 		}
 	}
 
+	/**
+	 * 通过名称获取bean
+	 * @param beanName
+	 * @return
+	 */
 	public Object getBean(String beanName) {
-		try {
-			if (beanDefinitionMap.containsKey(beanName)) {
-				BeanDefinition beanDefinition = beanDefinitionMap.get(beanName);
-				if (beanDefinition.getScope().equals("singleton")) {
-					Object object = singletonObjects.get(beanName);
-					return object;
-				} else {
-					// 创建 bean
-
-				}
+		if (beanDefinitionMap.containsKey(beanName)) {
+			Object object;
+			BeanDefinition beanDefinition = beanDefinitionMap.get(beanName);
+			if (beanDefinition.getScope().equals("singleton")) {
+				object = singletonObjects.get(beanName);
 			} else {
-				throw new NoExistsBeanException(beanName);
+				// 创建 bean
+				object = createBean(beanDefinition);
 			}
-		} catch (NoExistsBeanException e) {
-			System.out.println(e);
+			return object;
+		} else {
+			throw new NoExistsBeanException(beanName);
 		}
-		return null;
+	}
+
+	/**
+	 * 通过类型获取bean
+	 * @param clazz
+	 * @return
+	 */
+	public Object getBean(Class clazz){
+		Object object = null;
+		for (BeanDefinition beanDefinition : beanDefinitionMap.values()) {
+			if (beanDefinition.getClazz().equals(clazz)) {
+				if(beanDefinition.getScope().equals("singleton")){
+					object = singletonObjects.get(beanDefinition.getName());
+				}else{
+					object = createBean(beanDefinition);
+				}
+			}
+		}
+		if(object == null)
+			throw new NoExistsBeanException(clazz.getName());
+		return object;
 	}
 
 	private void printBanner() {

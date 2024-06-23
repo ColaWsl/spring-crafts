@@ -9,6 +9,7 @@ public class BeanDefinition {
 
 	private Class clazz;
 	private String scope = "singleton"; // 默认为单例
+	private String name;
 
 	public BeanDefinition(Class clazz, String scope) {
 		this.clazz = clazz;
@@ -34,5 +35,13 @@ public class BeanDefinition {
 
 	public void setScope(String scope) {
 		this.scope = scope;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
 	}
 }
