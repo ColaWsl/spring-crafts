@@ -1,14 +1,17 @@
 package com.crafts.spring;
 
+import com.crafts.spring.annotation.Autowird;
 import com.crafts.spring.annotation.Component;
 import com.crafts.spring.annotation.ComponentScan;
 import com.crafts.spring.annotation.Scope;
+import com.crafts.spring.aware.BeanNameAware;
 import com.crafts.spring.banner.Banner;
 import com.crafts.spring.banner.SpringLogoBanner;
 import com.crafts.spring.exception.NoExistsBeanException;
 import com.crafts.spring.exception.NotFoundAnnotation;
 
 import java.io.File;
+import java.lang.reflect.Field;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +39,7 @@ public class CraftsApplicationContext {
 
 		scan(configClass); // 得到 BeanDefinition
 
-		// 创建所有单例bean
+		// 初始化所有单例bean
 		for (String beanName : beanDefinitionMap.keySet()) {
 			BeanDefinition beanDefinition = beanDefinitionMap.get(beanName);
 			if (beanDefinition.getScope().equals("singleton")) {
@@ -48,10 +51,39 @@ public class CraftsApplicationContext {
 		printBanner();
 	}
 
+	/**
+	 * 创建bean
+	 * @param beanDefinition
+	 * @return
+	 */
 	private Object createBean(BeanDefinition beanDefinition) {
 		Class clazz = beanDefinition.getClazz();
 		try {
 			Object instance = clazz.getDeclaredConstructor().newInstance();
+			// 依赖注入
+			for (Field field : clazz.getDeclaredFields()) {
+				if(field.isAnnotationPresent(Autowird.class)){
+					Object bean = getBean(field.getType());
+					field.setAccessible(true);
+					field.set(instance, bean);
+				}
+			}
+
+			// Aware 回调
+			if(instance instanceof BeanNameAware){
+				((BeanNameAware) instance).setBeanName(beanDefinition.getName());
+			}
+
+			// 初始化
+			if(instance instanceof InitializingBean){
+				((InitializingBean) instance).afterPropertiesSet();
+			}
+
+			// BeanPostProcessor
+
+
+
+
 			return instance;
 		} catch (Exception e) {
 			throw new RuntimeException(e);
@@ -67,7 +99,11 @@ public class CraftsApplicationContext {
 		} else {
 			throw new NotFoundAnnotation(ComponentScan.class.getName());
 		}
+
+		System.out.println("==========================通过配置类获取包扫描路径======================");
 		System.out.println("scan package path: " + packageName);
+		System.out.println("====================================================================");
+
 		String path = packageName.replace(".", "/");
 
 		ClassLoader classLoader = CraftsApplicationContext.class.getClassLoader();
@@ -75,6 +111,8 @@ public class CraftsApplicationContext {
 		File file = new File(resource.getFile());
 		if (file.isDirectory()) {
 			File[] files = file.listFiles();
+			System.out.println("===============================扫描类路径=============================");
+
 			for (File f : files) {
 				String filename = f.getAbsolutePath();
 				if (filename.endsWith(".class")) {
@@ -106,6 +144,7 @@ public class CraftsApplicationContext {
 								beanDefinition.setScope(scopeAnno.value());
 							}
 
+							// 注册 bean 定义
 							beanDefinitionMap.put(beanName, beanDefinition);
 						}
 					} catch (ClassNotFoundException e) {
@@ -113,6 +152,7 @@ public class CraftsApplicationContext {
 					}
 				}
 			}
+			System.out.println("====================================================================");
 		}
 	}
 
@@ -159,7 +199,9 @@ public class CraftsApplicationContext {
 	}
 
 	private void printBanner() {
+		System.out.println("====================================================================");
 		banners.forEach(Banner::showBanner);
+		System.out.println("====================================================================");
 	}
 
 }
