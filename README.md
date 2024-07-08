@@ -19,3 +19,10 @@ java程序运行命令：E:\develop\Java\jdk-17.0.1\bin\java.exe "-javaagent:E:\
 
 1. 通过名称获取bean/通过类型获取bean  默认实现bean名称是 类名首字母小写
 2. 实现 beanName aware 回调
+
+## Star History ⭐
+<div align="center">
+
+<img src="https://api.star-history.com/svg?repos=ColaWsl/spring-crafts&type=Date" width="600" height="400" alt="Star History Chart" valign="middle">
+
+</div>
